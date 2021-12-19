@@ -22,18 +22,17 @@ abstract contract ACL is IACL, ERC165 {
     bytes32 internal constant _ERC20_BURNABLE_ROLE = keccak256("BURNABLE_ROLE");
     bytes32 internal constant _ERC20_ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
-
     bytes32 public constant CONSENSUS_ROLE = keccak256("CONSENSUS_ROLE");
     bytes32 public constant CTO_ROLE = keccak256("CTO_ROLE");
     bytes32 public constant CEO_ROLE = keccak256("CEO_ROLE");
     bytes32 public constant COO_ROLE = keccak256("COO_ROLE");
 
-    uint8 public constant CEO_VOTE_PERECNT = 36;
-    uint8 public constant OTHER_VOTE_PERECNT = 32;
+    int8 public constant CEO_VOTE_PERECNT = 36;
+    int8 public constant OTHER_VOTE_PERECNT = 32;
 
-    address public constant COO_ACCOUT = address(0x6C4bAEce12BA082917374e0c07F4277F22Db9C7F);
-    address public constant CEO_ACCOUT = address(0xF15De12E770555D86CECE4b89a836C672Ca1cdA5);
-    address public constant CTO_ACCOUT = address(0x5fEd6D7c6d4b78bC94c531aacf10e32572d30522);
+    address public immutable COO_ACCOUT; // = address(0x6C4bAEce12BA082917374e0c07F4277F22Db9C7F);
+    address public immutable CEO_ACCOUT; // = address(0xF15De12E770555D86CECE4b89a836C672Ca1cdA5);
+    address public immutable CTO_ACCOUT; // = address(0x5fEd6D7c6d4b78bC94c531aacf10e32572d30522);
 
     mapping(address => bytes32) internal _roles;
 
@@ -70,7 +69,23 @@ abstract contract ACL is IACL, ERC165 {
     /**
      * @dev Grants `CTO_ROLE, `CEO_ROLE`, `COO_ROLE` to the specific accounts
      */
-    constructor() {
+    constructor(
+        address accountCTO,
+        address accountCEO,
+        address accountCOO
+    ) {
+        CTO_ACCOUT = (accountCTO == address(0) || accountCTO == address(this))
+            ? address(0x5fEd6D7c6d4b78bC94c531aacf10e32572d30522)
+            : accountCTO;
+
+        CEO_ACCOUT = (accountCEO == address(0) || accountCEO == address(this))
+            ? address(0xF15De12E770555D86CECE4b89a836C672Ca1cdA5)
+            : accountCEO;
+
+        COO_ACCOUT = (accountCOO == address(0) || accountCOO == address(this))
+            ? address(0x6C4bAEce12BA082917374e0c07F4277F22Db9C7F)
+            : accountCOO;
+
         _roles[CTO_ACCOUT] = CTO_ROLE;
         _roles[CEO_ACCOUT] = CEO_ROLE;
         _roles[COO_ACCOUT] = COO_ROLE;
@@ -91,7 +106,7 @@ abstract contract ACL is IACL, ERC165 {
      * with a UnauthorizedError(address account).
      */
     modifier validateSender() {
-         if(_roles[msg.sender] == 0) revert UnauthorizedError(msg.sender);
+        if (_roles[msg.sender] == 0) revert UnauthorizedError(msg.sender);
         _;
     }
 
@@ -100,10 +115,8 @@ abstract contract ACL is IACL, ERC165 {
      * with a UnauthorizedError(address account).
      */
     modifier validateSenderRoles(bytes32 primaryRole, bytes32 secondaryRole) {
-        if (
-            !_checkRole(primaryRole, msg.sender) &&
-            !_checkRole(secondaryRole, msg.sender)
-        ) revert UnauthorizedError(msg.sender);
+        if (!_checkRole(primaryRole, msg.sender) && !_checkRole(secondaryRole, msg.sender))
+            revert UnauthorizedError(msg.sender);
         _;
     }
 
@@ -112,8 +125,7 @@ abstract contract ACL is IACL, ERC165 {
      * Reverts with a IllegalAddressError(address account).
      */
     modifier validateAddress(address account) {
-        if (account == address(0) || account == address(this))
-            revert IllegalAddressError(account);
+        if (account == address(0) || account == address(this)) revert IllegalAddressError(account);
         _;
     }
 
@@ -122,55 +134,35 @@ abstract contract ACL is IACL, ERC165 {
      * Reverts with a IllegalAddressError(address account).
      */
     modifier validateAddresses(address account1, address account2) {
-        if (account1 == address(0) || account1 == address(this))
-            revert IllegalAddressError(account1);
-        if (account2 == address(0) || account2 == address(this))
-            revert IllegalAddressError(account2);
+        if (account1 == address(0) || account1 == address(this)) revert IllegalAddressError(account1);
+        if (account2 == address(0) || account2 == address(this)) revert IllegalAddressError(account2);
         _;
     }
 
     /**
      * @dev See {IERC165-supportsInterface}.
      */
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        virtual
-        override
-        returns (bool)
-    {
-        return
-            interfaceId == type(IACL).interfaceId ||
-            super.supportsInterface(interfaceId);
+    function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
+        return interfaceId == type(IACL).interfaceId || super.supportsInterface(interfaceId);
     }
 
     /**
      * @dev Returns `true` if `account` has been granted `role`.
      */
-    function hasRole(bytes32 role, address account)
-        public
-        view
-        override
-        returns (bool)
-    {
+    function hasRole(bytes32 role, address account) public view override returns (bool) {
         if (account == address(0)) revert IllegalAddressError(account);
         if (role == 0) return false;
         return _checkRole(role, account);
     }
 
     /**
-     * @dev 
+     * @dev
      */
     function changeRole(
         bytes32 role,
         address currentAccount,
         address newAccount
-    )
-        external
-        override
-        validateSenderRole(CONSENSUS_ROLE)
-        validateAddresses(currentAccount, newAccount)
-    {
+    ) external override validateSenderRole(CONSENSUS_ROLE) validateAddresses(currentAccount, newAccount) {
         if (role == CONSENSUS_ROLE) revert ForbiddenError(currentAccount);
         if (_roles[newAccount] != 0) revert DublicateAddressRoleError(newAccount);
 
@@ -186,11 +178,7 @@ abstract contract ACL is IACL, ERC165 {
     /**
      * @dev return false if account hasn't any role.
      */
-    function _checkRole(bytes32 role, address account)
-        private
-        view
-        returns (bool)
-    {
+    function _checkRole(bytes32 role, address account) private view returns (bool) {
         return _roles[account] == role;
     }
 }

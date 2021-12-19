@@ -2,6 +2,9 @@
 pragma solidity 0.8.10;
 
 interface IManagement {
+    /**
+     * @dev Consensus Action types
+     */
     enum ActionType {
         GRANT_ROLE, // Lively ERC20 Token, 100% quorum
         REVOKE_ROLE, // Lively ERC20 Token, 100% quorum
@@ -19,13 +22,20 @@ interface IManagement {
         WITHDRAWAL_BALANCE // Lively ERC20 Token, gt 60% vote percent
     }
 
+    /**
+     * @dev Action status
+     */
     enum ActionStatus {
         FAIL,
         SUCCESS,
         PENDING,
+        CANCELED,
         NONE
     }
 
+    /**
+     * @dev Consensus status
+     */
     enum ConsensusStatus {
         ACCEPTED,
         REJECTED,
@@ -33,12 +43,24 @@ interface IManagement {
         VOTING
     }
 
+    /**
+     * @dev Consensus States
+     */
+    enum ConsensusStage {
+        NONE_STAGE,
+        VOTE_STAGE,
+        ACTION_STAGE
+    }
+
+    /**
+     * @dev Consensus store data
+     */
     struct ConsensusData {
         uint32 requestId;
         ActionType actionType;
         ActionStatus actionStatus;
         ConsensusStatus status;
-        uint8 votePercent;
+        int8 votePercent;
         address applicant;
         address optAccount1;
         address optAccount2;
@@ -46,7 +68,10 @@ interface IManagement {
         uint256 amount;
     }
 
-    struct Request {
+    /**
+     * @dev Consensus Request by any role
+     */
+    struct ConsensusRequest {
         uint32 id;
         ActionType actionType;
         address optAccount1;
@@ -55,51 +80,63 @@ interface IManagement {
         uint256 amount;
     }
 
-    event ConsensusStarted(
-        address indexed applicant, 
-        uint256 indexed consensusId, 
-        ActionType indexed actionType
-    );
+    /**
+     * @dev Consensus started event
+     */
+    event ConsensusStarted(address indexed applicant, bytes32 indexed consensusId, ActionType indexed actionType);
 
+    /**
+     * @dev Consensus finished event
+     */
     event ConsensusFinished(
-        address indexed applicant, 
-        uint256 indexed consensusId,
+        address indexed applicant,
+        bytes32 indexed consensusId,
         ConsensusStatus indexed status,
         ActionType actionType
     );
 
-    event ConsensusCanceled(
-        address indexed applicant, 
-        uint256 indexed consensusId, 
-        ActionType indexed actionType
-    );
+    /**
+     * @dev Consensus canceled event
+     */
+    event ConsensusCanceled(address indexed applicant, bytes32 indexed consensusId, ActionType indexed actionType);
 
+    /**
+     * @dev Action canceled event
+     */
+    event ActionCanceled(address indexed applicant, bytes32 indexed consensusId, ActionType indexed actionType);
+
+    /**
+     * @dev Action executed event
+     */
     event ActionExecuted(
         address sender,
-        uint256 indexed consensusId,
+        bytes32 indexed consensusId,
         ActionType indexed actionType,
-        ActionStatus indexed status
+        ActionStatus indexed status,
+        bytes data
     );
 
-    function startConsensus(Request calldata request)
-        external
-        returns (uint256 consensusId);
+    function startConsensus(ConsensusRequest calldata request) external returns (bytes32 consensusId);
 
-    function commitVote(uint256 consensusId, bool vote) external;
+    function voteConsensus(bytes32 consensusId, bool vote) external;
 
-    function cancelConsensus(uint256 consensusId) external;
+    function cancelConsensus(bytes32 consensusId) external;
 
-    function getConsensusData(uint256 consensusId)
-        external
-        view
-        returns (ConsensusData memory);
+    function cancelAction(bytes32 consensusId) external;
 
-    function getConsensusStatus(uint256 consensusId)
-        external
-        view
-        returns (ConsensusStatus);
+    function runAction(
+        bytes32 consensusId,
+        uint256 optionalData1,
+        uint256 optionalData2
+    ) external returns (bool, bytes memory);
 
-    function runAction(uint256 consensusId, uint256 optionalData1, uint256 optionalData2)
-        external
-        returns (bool, bytes memory);
+    function getCurrentConsensus() external view returns (bytes32);
+
+    function getConsensusStage() external view returns (ConsensusStage);
+
+    function getConsensusTime() external view returns (uint256);
+
+    function getConsensusData(bytes32 consensusId) external view returns (ConsensusData memory);
+
+    function getConsensusStatus(bytes32 consensusId) external view returns (ConsensusStatus);
 }

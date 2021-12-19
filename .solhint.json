@@ -2,8 +2,8 @@
   "extends": "solhint:recommended",
   "plugins": [],
   "rules": {
-    "code-complexity": ["warn", 7],
-    "function-max-lines": ["warn", 50],
+    "code-complexity": ["warn", 10],
+    "function-max-lines": ["warn", 100],
     "max-line-length": ["error", 120],
     "max-states-count": ["warn", 15],
     "no-empty-blocks": "warn",

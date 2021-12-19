@@ -25,40 +25,26 @@ interface IFreezable {
      * a call to {freezeFrom}.
      * `amount` add to the freeze account and subtracted from balance of account.
      */
-    event FreezeFrom(
-        address indexed sender,
-        address indexed account,
-        uint256 oldFreeze,
-        uint256 amount
-    );
+    event FreezeFrom(address indexed sender, address indexed account, uint256 oldFreeze, uint256 amount);
 
     /**
      * @dev Emitted when the unfreeze of a `amount` for an `account` is set by
      * a call to {unfreezeFrom}.
      * `amount` subtracted from the freeze account and add to balance of account.
      */
-    event UnfreezeFrom(
-        address indexed sender,
-        address indexed account,
-        uint256 oldFreeze,
-        uint256 amount
-    );
+    event UnfreezeFrom(address indexed sender, address indexed account, uint256 oldFreeze, uint256 amount);
 
     /**
      * @dev Freeze `amount` tokens from the caller account.
      *
      */
-    function freeze(uint256 currentFreezeBalance, uint256 amount)
-        external
-        returns (uint256 newFreezeBalance);
+    function freeze(uint256 currentFreezeBalance, uint256 amount) external returns (uint256 newFreezeBalance);
 
     /**
      * @dev Unfreeze `amount` tokens from the caller account.
      *
      */
-    function unfreeze(uint256 currentFreezeBalance, uint256 amount)
-        external
-        returns (uint256 newFreezeBalance);
+    function unfreeze(uint256 currentFreezeBalance, uint256 amount) external returns (uint256 newFreezeBalance);
 
     /**
      * @dev Freeze `amount` tokens from the account by caller.
