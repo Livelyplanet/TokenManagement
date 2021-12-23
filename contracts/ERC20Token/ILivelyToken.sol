@@ -10,6 +10,15 @@ import "./IMintable.sol";
 import "./IPausable.sol";
 import "../IERC165.sol";
 
-interface ILivelyToken is IAccessControl, IBurnable, IERC20, IERC20Sec, IFreezable, IMintable, IPausable, IERC165 {
+interface ILivelyToken is
+    IAccessControl,
+    IBurnable,
+    IERC20,
+    IERC20Sec,
+    IFreezable,
+    IMintable,
+    IPausable,
+    IERC165
+{
     function withdrawalBalance(address recepient) external;
 }

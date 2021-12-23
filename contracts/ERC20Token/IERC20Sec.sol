@@ -7,21 +7,36 @@ interface IERC20Sec {
      * a call to {approve}.
      * `value` is the new allowance and `oldValue` is the old allowance.
      */
-    event ApprovalSec(address indexed owner, address indexed spender, uint256 oldAllowance, uint256 value);
+    event ApprovalSec(
+        address indexed owner,
+        address indexed spender,
+        uint256 oldAllowance,
+        uint256 value
+    );
 
     /**
      * @dev Emitted when increment the allowance of a `spender` for an `owner` is set by
      * a call to {increaseAllowanceSec}.
      * `value` is the increment current allowance.
      */
-    event ApprovalIncSec(address indexed owner, address indexed spender, uint256 oldAllowance, uint256 value);
+    event ApprovalIncSec(
+        address indexed owner,
+        address indexed spender,
+        uint256 oldAllowance,
+        uint256 value
+    );
 
     /**
      * @dev Emitted when decrement the allowance of a `spender` for an `owner` is set by
      * a call to {decreaseAllowanceSec}.
      * `value` is the decrement current allowance.
      */
-    event ApprovalDecSec(address indexed owner, address indexed spender, uint256 oldAllowance, uint256 value);
+    event ApprovalDecSec(
+        address indexed owner,
+        address indexed spender,
+        uint256 oldAllowance,
+        uint256 value
+    );
 
     /**
      * @dev Emitted when spender wants to transfer `value` tokens are moved from one account (`from`) to
@@ -29,7 +44,12 @@ interface IERC20Sec {
      *
      * Note that `value` may be zero.
      */
-    event TransferFromSec(address indexed sender, address indexed from, address indexed to, uint256 value);
+    event TransferFromSec(
+        address indexed sender,
+        address indexed from,
+        address indexed to,
+        uint256 value
+    );
 
     /**
      * @dev Sets `amount` as the allowance of `spender` over the caller's tokens.

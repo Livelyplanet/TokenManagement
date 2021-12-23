@@ -4,9 +4,7 @@ pragma solidity 0.8.10;
 import "./IManagement.sol";
 import "./ACL.sol";
 import "./ERC165.sol";
-
 import "./ERC20Token/ILivelyToken.sol";
-import "hardhat/console.sol";
 
 contract Management is ERC165, ACL, IManagement {
     int8 private constant _CONSENSUS_ACCEPTED_QUORUM_FULL = 100;
@@ -47,6 +45,11 @@ contract Management is ERC165, ACL, IManagement {
 
     address private _livelyERC20Token;
 
+    bool private _isDestroyEnable;
+
+    /**
+     * @dev initialize livelyToken address acounts and consensus time
+     */
     constructor(
         address livelyToken,
         address accountCTO,
@@ -54,8 +57,11 @@ contract Management is ERC165, ACL, IManagement {
         address accountCOO,
         uint256 voteDeadline
     ) ACL(accountCTO, accountCEO, accountCOO) {
-        if (livelyToken == address(0) || livelyToken == address(this) || !_validateLivelyTokenAddress(livelyToken))
-            revert IllegalArgumentError();
+        if (
+            livelyToken == address(0) ||
+            livelyToken == address(this) ||
+            !_validateLivelyTokenAddress(livelyToken)
+        ) revert IllegalArgumentError();
 
         _voteDeadline = voteDeadline == 0 ? 8 days : voteDeadline;
 
@@ -65,8 +71,12 @@ contract Management is ERC165, ACL, IManagement {
         _voteStageTime = 0;
         _currentStage = ConsensusStage.NONE_STAGE;
         _currentConsensusId = 0;
+        _isDestroyEnable = false;
     }
 
+    /**
+     * @dev get default consensus time
+     */
     function getConsensusTime() external view override returns (uint256) {
         return _voteDeadline;
     }
@@ -74,14 +84,25 @@ contract Management is ERC165, ACL, IManagement {
     /**
      * @dev ERC165
      */
-    function supportsInterface(bytes4 interfaceId) public view override(ERC165, ACL) returns (bool) {
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC165, ACL)
+        returns (bool)
+    {
         return interfaceId == type(IManagement).interfaceId || super.supportsInterface(interfaceId);
     }
 
+    /**
+     * @dev get currenct consensus id
+     */
     function getCurrentConsensus() external view override returns (bytes32) {
         return _currentConsensusId;
     }
 
+    /**
+     * @dev get current consensus stage
+     */
     function getConsensusStage() external view override returns (ConsensusStage) {
         return _currentStage;
     }
@@ -96,7 +117,9 @@ contract Management is ERC165, ACL, IManagement {
         _actionFuns[ActionType.BURN] = _getSelector("burn(address,uint256,uint256,uint256)");
         _actionFuns[ActionType.PAUSE_ALL] = _getSelector("pauseAll()");
         _actionFuns[ActionType.UNPAUSE_ALL] = _getSelector("unpauseAll()");
-        _actionFuns[ActionType.TRANSFER] = _getSelector("transferFromSec(address,address,uint256,uint256)");
+        _actionFuns[ActionType.TRANSFER] = _getSelector(
+            "transferFromSec(address,address,uint256,uint256)"
+        );
         _actionFuns[ActionType.FREEZE] = _getSelector("freezeFrom(address,uint256,uint256");
         _actionFuns[ActionType.UNFREEZE] = _getSelector("unfreezeFrom(address,uint256,uint256)");
         _actionFuns[ActionType.PAUSE] = _getSelector("pause(address)");
@@ -124,15 +147,24 @@ contract Management is ERC165, ACL, IManagement {
         return bytes4(keccak256(bytes(_func)));
     }
 
+    /**
+     * @dev validate consensus stage
+     */
     modifier atStage(ConsensusStage _stage) {
         if (_currentStage != _stage) revert InvalidStageError();
         _;
     }
 
+    /**
+     * @dev change consensus stage
+     */
     function _nextStage() internal {
         _currentStage = ConsensusStage(uint256(_currentStage) + 1);
     }
 
+    /**
+     * @dev reset consensus related data
+     */
     function _resetConsensus() internal {
         _currentStage = ConsensusStage.NONE_STAGE;
         _currentConsensusId = 0;
@@ -154,33 +186,10 @@ contract Management is ERC165, ACL, IManagement {
     {
         if (request.id == 0) revert IllegalRequestError();
 
-        // console.logBytes(abi.encodePacked(request.id));
         _currentConsensusId = keccak256(abi.encodePacked(request.id));
-        // console.log("consensusId: ");
-        // console.logBytes32(_currentConsensusId);
         if (_consensuses[_currentConsensusId].requestId != 0) revert DuplicateRequestIdError();
 
         if (
-            request.optAccount1 == address(0) ||
-            request.optAccount1 == address(this) ||
-            request.optAccount2 == address(0) ||
-            request.optAccount2 == address(this)
-        ) revert IllegalRequestError();
-
-        if (
-            request.actionType == ActionType.GRANT_ROLE &&
-            request.role != _ERC20_ADMIN_ROLE &&
-            request.role != _ERC20_BURNABLE_ROLE &&
-            request.role != CONSENSUS_ROLE
-        ) {
-            revert IllegalRoleError();
-        } else if (
-            request.actionType == ActionType.REVOKE_ROLE &&
-            request.role != _ERC20_ADMIN_ROLE &&
-            request.role != _ERC20_BURNABLE_ROLE
-        ) {
-            revert IllegalRoleError();
-        } else if (
             request.actionType == ActionType.CHANGE_ROLE &&
             request.role != CTO_ROLE &&
             request.role != CEO_ROLE &&
@@ -227,7 +236,8 @@ contract Management is ERC165, ACL, IManagement {
         atStage(ConsensusStage.VOTE_STAGE)
     {
         ConsensusData storage data = _consensuses[consensusId];
-        if (data.requestId == 0) revert IllegalConsensusIdError();
+        if (data.requestId == 0 || data.status != ConsensusStatus.VOTING)
+            revert IllegalConsensusIdError();
 
         bytes32 role = _roles[msg.sender];
         if (_votes[role]) revert IllegalVoteError();
@@ -275,28 +285,43 @@ contract Management is ERC165, ACL, IManagement {
                 _nextStage();
                 emit ConsensusFinished(data.applicant, consensusId, data.status, data.actionType);
             } else if (
-                data.votePercent < _CONSENSUS_REJECTED_QUORUM_LT_20 || block.timestamp >= _voteStageTime + _voteDeadline
+                data.votePercent < _CONSENSUS_REJECTED_QUORUM_LT_20 ||
+                block.timestamp >= _voteStageTime + _voteDeadline
             ) {
                 if (data.votePercent < 0) {
                     data.status = ConsensusStatus.REJECTED;
                     _resetConsensus();
-                    emit ConsensusFinished(data.applicant, consensusId, data.status, data.actionType);
+                    emit ConsensusFinished(
+                        data.applicant,
+                        consensusId,
+                        data.status,
+                        data.actionType
+                    );
                 } else {
                     data.status = ConsensusStatus.ACCEPTED;
                     data.actionStatus = ActionStatus.PENDING;
                     _nextStage();
-                    emit ConsensusFinished(data.applicant, consensusId, data.status, data.actionType);
+                    emit ConsensusFinished(
+                        data.applicant,
+                        consensusId,
+                        data.status,
+                        data.actionType
+                    );
                 }
             }
             // Consensus with Quorum > 60
-        } else if (data.actionType == ActionType.APPROVE || data.actionType == ActionType.WITHDRAWAL_BALANCE) {
+        } else if (
+            data.actionType == ActionType.APPROVE ||
+            data.actionType == ActionType.WITHDRAWAL_BALANCE
+        ) {
             if (data.votePercent > _CONSENSUS_ACCEPTED_QUORUM_GT_60) {
                 data.status = ConsensusStatus.ACCEPTED;
                 data.actionStatus = ActionStatus.PENDING;
                 _nextStage();
                 emit ConsensusFinished(data.applicant, consensusId, data.status, data.actionType);
             } else if (
-                data.votePercent < _CONSENSUS_REJECTED_QUORUM_LT_20 || block.timestamp >= _voteStageTime + _voteDeadline
+                data.votePercent < _CONSENSUS_REJECTED_QUORUM_LT_20 ||
+                block.timestamp >= _voteStageTime + _voteDeadline
             ) {
                 data.status = ConsensusStatus.REJECTED;
                 _resetConsensus();
@@ -313,11 +338,15 @@ contract Management is ERC165, ACL, IManagement {
         bytes32 consensusId,
         uint256 optionalData1,
         uint256 optionalData2
-    ) external override validateSender atStage(ConsensusStage.ACTION_STAGE) returns (bool, bytes memory) {
+    ) external override validateSender atStage(ConsensusStage.ACTION_STAGE) returns (bytes memory) {
         ConsensusData storage consensusData = _consensuses[consensusId];
-        if (consensusData.requestId == 0) revert IllegalConsensusIdError();
+        if (consensusData.requestId == 0 || consensusData.actionStatus != ActionStatus.PENDING)
+            revert IllegalConsensusIdError();
+
         bytes memory inputData;
+        bytes memory result;
         if (consensusData.actionType == ActionType.GRANT_ROLE) {
+            if (consensusData.role == CONSENSUS_ROLE) _isDestroyEnable = true;
             inputData = abi.encodeWithSelector(
                 _actionFuns[ActionType.GRANT_ROLE],
                 consensusData.role,
@@ -349,16 +378,23 @@ contract Management is ERC165, ACL, IManagement {
                 optionalData1,
                 consensusData.amount
             );
-        } else if (consensusData.actionType == ActionType.MINT || consensusData.actionType == ActionType.BURN) {
-            return _burnMintHandler(consensusData, optionalData1, optionalData2);
+        } else if (
+            consensusData.actionType == ActionType.MINT ||
+            consensusData.actionType == ActionType.BURN
+        ) {
+            result = _burnMintHandler(consensusData, optionalData1, optionalData2);
         } else if (
             consensusData.actionType == ActionType.PAUSE ||
             consensusData.actionType == ActionType.UNPAUSE ||
             consensusData.actionType == ActionType.WITHDRAWAL_BALANCE
         ) {
-            inputData = abi.encodeWithSelector(_actionFuns[consensusData.actionType], consensusData.optAccount1);
+            inputData = abi.encodeWithSelector(
+                _actionFuns[consensusData.actionType],
+                consensusData.optAccount1
+            );
         } else if (
-            consensusData.actionType == ActionType.PAUSE_ALL || consensusData.actionType == ActionType.UNPAUSE_ALL
+            consensusData.actionType == ActionType.PAUSE_ALL ||
+            consensusData.actionType == ActionType.UNPAUSE_ALL
         ) {
             inputData = abi.encodeWithSelector(_actionFuns[consensusData.actionType]);
         } else if (consensusData.actionType == ActionType.CHANGE_ROLE) {
@@ -369,24 +405,18 @@ contract Management is ERC165, ACL, IManagement {
                 consensusData.optAccount2
             );
 
-            (bool isSuccess, bytes memory resultCall) = address(this).call(inputData);
-            consensusData.actionStatus = ActionStatus(isSuccess ? 1 : 0);
+            bytes memory resultCall = _forward(address(this), inputData);
+            consensusData.actionStatus = ActionStatus.SUCCESS;
             _resetConsensus();
-            emit ActionExecuted(
-                msg.sender,
-                consensusId,
-                consensusData.actionType,
-                consensusData.actionStatus,
-                resultCall
-            );
-            return (isSuccess, resultCall);
+            emit ActionExecuted(msg.sender, consensusId, consensusData.actionType, resultCall);
+            return resultCall;
         }
 
-        (bool success, bytes memory result) = _forward(inputData);
-        consensusData.actionStatus = ActionStatus(success ? 1 : 0);
+        result = _forward(_livelyERC20Token, inputData);
+        consensusData.actionStatus = ActionStatus.SUCCESS;
         _resetConsensus();
-        emit ActionExecuted(msg.sender, consensusId, consensusData.actionType, consensusData.actionStatus, result);
-        return (success, result);
+        emit ActionExecuted(msg.sender, consensusId, consensusData.actionType, result);
+        return result;
     }
 
     /**
@@ -397,17 +427,15 @@ contract Management is ERC165, ACL, IManagement {
         ConsensusData storage consensusData,
         uint256 optionalData1,
         uint256 optionalData2
-    ) private returns (bool success, bytes memory data) {
+    ) private returns (bytes memory data) {
         bytes memory inputData = abi.encodeWithSelector(_getSelector("paused()"));
-        (success, data) = _forward(inputData);
-        if (!success) return (success, data);
+        data = _forward(_livelyERC20Token, inputData);
 
-        uint8 contractPause = _toUint8(data, 0);
+        uint8 contractPause = _toUint8(data, 31);
 
         if (contractPause == 0) {
             inputData = abi.encodeWithSelector(_actionFuns[ActionType.PAUSE_ALL]);
-            (success, data) = _forward(inputData);
-            if (!success) return (success, data);
+            data = _forward(_livelyERC20Token, inputData);
         }
 
         inputData = abi.encodeWithSelector(
@@ -417,49 +445,95 @@ contract Management is ERC165, ACL, IManagement {
             optionalData2,
             consensusData.amount
         );
-        (bool isSuccess, bytes memory result) = _forward(inputData);
+        bytes memory result = _forward(_livelyERC20Token, inputData);
 
         if (contractPause == 0) {
             inputData = abi.encodeWithSelector(_actionFuns[ActionType.UNPAUSE_ALL]);
-            _forward(inputData);
+            _forward(_livelyERC20Token, inputData);
         }
-
-        return (isSuccess, result);
+        return result;
     }
 
     /**
-     * @dev Forwards the call to the `target contarct`.
+     * @dev forward requests to target contract
      */
-    function _forward(bytes memory data) private returns (bool, bytes memory) {
-        return _livelyERC20Token.call(data);
+    function _forward(address target, bytes memory data) private returns (bytes memory result) {
+        assembly {
+            // loading result variable to stack
+            let ptr := add(result, 0x20)
+
+            // loading data size
+            let size := mload(data)
+
+            // loading data variable
+            let startData := add(data, 0x20)
+
+            // Call the implementation.
+            // out and outsize are 0 because we don't know the size yet.
+            let res := call(gas(), target, 0, startData, size, 0, 0)
+
+            // store return data size
+            mstore(result, returndatasize())
+
+            // Copy the returned data.
+            returndatacopy(ptr, 0, returndatasize())
+
+            if eq(res, 0) {
+                revert(ptr, returndatasize())
+            }
+        }
+
+        return result;
     }
 
     /**
      * @dev cancel current consensus by consensusId if specify consensus is active
      */
-    function cancelConsensus(bytes32 consensusId) external override validateSender atStage(ConsensusStage.VOTE_STAGE) {
+    function cancelConsensus(bytes32 consensusId)
+        external
+        override
+        validateSender
+        atStage(ConsensusStage.VOTE_STAGE)
+    {
         ConsensusData storage consensusData = _consensuses[consensusId];
-        if (consensusData.requestId == 0) revert IllegalConsensusIdError();
+        if (consensusData.requestId == 0 || consensusData.status != ConsensusStatus.VOTING)
+            revert IllegalConsensusIdError();
         if (consensusData.applicant != msg.sender) revert ForbiddenError(msg.sender);
 
         consensusData.status = ConsensusStatus.CANCELED;
         consensusData.actionStatus = ActionStatus.NONE;
+        _resetConsensus();
         emit ConsensusCanceled(consensusData.applicant, consensusId, consensusData.actionType);
     }
 
-    function cancelAction(bytes32 consensusId) external override validateSender atStage(ConsensusStage.ACTION_STAGE) {
+    /**
+     * @dev cancel current action by consensusId if specify action is active
+     */
+    function cancelAction(bytes32 consensusId)
+        external
+        override
+        validateSender
+        atStage(ConsensusStage.ACTION_STAGE)
+    {
         ConsensusData storage consensusData = _consensuses[consensusId];
-        if (consensusData.requestId == 0) revert IllegalConsensusIdError();
+        if (consensusData.requestId == 0 || consensusData.actionStatus != ActionStatus.PENDING)
+            revert IllegalConsensusIdError();
         if (consensusData.applicant != msg.sender) revert ForbiddenError(msg.sender);
 
         consensusData.actionStatus = ActionStatus.CANCELED;
+        _resetConsensus();
         emit ActionCanceled(consensusData.applicant, consensusId, consensusData.actionType);
     }
 
     /**
      * @dev return ConsensusData by consensusId
      */
-    function getConsensusData(bytes32 consensusId) external view override returns (ConsensusData memory) {
+    function getConsensusData(bytes32 consensusId)
+        external
+        view
+        override
+        returns (ConsensusData memory)
+    {
         ConsensusData memory consensusData = _consensuses[consensusId];
         if (consensusData.requestId == 0) revert IllegalConsensusIdError();
         return consensusData;
@@ -468,7 +542,12 @@ contract Management is ERC165, ACL, IManagement {
     /**
      * @dev return consensus status by consensusId
      */
-    function getConsensusStatus(bytes32 consensusId) external view override returns (ConsensusStatus) {
+    function getConsensusStatus(bytes32 consensusId)
+        external
+        view
+        override
+        returns (ConsensusStatus)
+    {
         ConsensusData memory consensusData = _consensuses[consensusId];
         if (consensusData.requestId == 0) revert IllegalConsensusIdError();
         return consensusData.status;
@@ -486,5 +565,15 @@ contract Management is ERC165, ACL, IManagement {
         }
 
         return tempUint;
+    }
+
+    /**
+     * @dev GrantRole action for CONSENSUS_ROLE of livelyToken,
+     * after run action, any role can call it.
+     */
+    // solhint-disable-next-line
+    function destroy(address target) external validateSender {
+        if (!_isDestroyEnable) revert IllegalRequestError();
+        selfdestruct(payable(target));
     }
 }

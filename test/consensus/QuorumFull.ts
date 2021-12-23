@@ -1,6 +1,17 @@
 /* eslint-disable node/no-missing-import */
 /* eslint-disable no-unused-vars */
 /* eslint-disable no-unused-expressions */
+/*
+ * data tuple for remix
+ * Burn
+ * [1,3,"0x001b0a8A4749C70AEAD435Cf7E6dA06A7bAd1a2d","0x001b0a8A4749C70AEAD435Cf7E6dA06A7bAd1a2d","0x36fd43ede163045b10e1f0abd16f62f165fce3fa7b6cde217bcea3bc47663acc","1000000000000000000000"];
+ *
+ * GRANT_ROLE CONSENSUS_ROLE
+ * [1,0,"0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9","0x5FC8d32690cc91D4c39d9d3abcBD16989F875707","0x36fd43ede163045b10e1f0abd16f62f165fce3fa7b6cde217bcea3bc47663acc",0];
+ *
+ * GRANT_ROLE ADMIN
+ * [1,0,"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266","0x14dc79964da2c08b23698b3d3cc7ca32193d9955","0xa49807205ce4d355092ef5a8a18f56e8913cf4a201fbe287825b095693c21775",0];
+ */
 import { expect } from "chai";
 import { ethers } from "ethers";
 import { waffle } from "hardhat";
@@ -32,7 +43,6 @@ describe("Consensus Quorum Full Accepetd", function () {
     ] = provider.getWallets();
 
     livelyTokenMock = await deployMockContract(adminWallet, LivelyToken.abi);
-    // console.log(`lively address: ${livelyTokenMock.address}`);
 
     // IAccessControl
     await livelyTokenMock.mock.supportsInterface
@@ -432,14 +442,14 @@ describe("Consensus Quorum Full Rejected With Vote", function () {
     ).to.revertedWith("DuplicateRequestIdError()");
   });
 
-  it("Should CTO role couldn't start consensus for GRANT_ROLE with invalid role", async () => {
+  it("Should CTO role couldn't start consensus with invalid role", async () => {
     // given
     const request: base.ConsensusRequest = {
       id: 2,
-      actionType: base.ActionType.GRANT_ROLE,
+      actionType: base.ActionType.CHANGE_ROLE,
       optAccount1: optionalAccount1.address,
       optAccount2: optionalAccount2.address,
-      role: base.CEO_ROLE,
+      role: base.ADMIN_ROLE,
       amount: ethers.BigNumber.from(0),
     };
 
@@ -513,6 +523,35 @@ describe("Consensus Quorum Full Rejected With Vote", function () {
     expect(consensusData.status).to.equal(base.ConsensusStatus.CANCELED);
     expect(consensusData.actionStatus).to.equal(base.ActionStatus.NONE);
     expect(consensusData.votePercent).to.equal(base.OTHER_VOTE_PERECNT);
+  });
+  it("Should anyrole could start consensus after canceled consensus", async () => {
+    // given
+    const request: base.ConsensusRequest = {
+      id: 10,
+      actionType: base.ActionType.REVOKE_ROLE,
+      optAccount1: optionalAccount1.address,
+      optAccount2: optionalAccount2.address,
+      role: base.BURNABLE_ROLE,
+      amount: ethers.BigNumber.from(0),
+    };
+
+    // when
+    await expect(tokenManagement.connect(ceoWallet).startConsensus(request))
+      .to.emit(tokenManagement, "ConsensusStarted")
+      .withArgs(
+        ceoWallet.address,
+        ethers.utils.keccak256(
+          ethers.utils.hexlify([0x00, 0x00, 0x00, request.id])
+        ),
+        base.ActionType.REVOKE_ROLE
+      );
+
+    // then
+    expect(await tokenManagement.getCurrentConsensus()).to.equal(
+      ethers.utils.keccak256(
+        ethers.utils.hexlify([0x00, 0x00, 0x00, request.id])
+      )
+    );
   });
 });
 
