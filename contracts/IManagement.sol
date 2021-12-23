@@ -26,7 +26,6 @@ interface IManagement {
      * @dev Action status
      */
     enum ActionStatus {
-        FAIL,
         SUCCESS,
         PENDING,
         CANCELED,
@@ -83,7 +82,11 @@ interface IManagement {
     /**
      * @dev Consensus started event
      */
-    event ConsensusStarted(address indexed applicant, bytes32 indexed consensusId, ActionType indexed actionType);
+    event ConsensusStarted(
+        address indexed applicant,
+        bytes32 indexed consensusId,
+        ActionType indexed actionType
+    );
 
     /**
      * @dev Consensus finished event
@@ -98,25 +101,34 @@ interface IManagement {
     /**
      * @dev Consensus canceled event
      */
-    event ConsensusCanceled(address indexed applicant, bytes32 indexed consensusId, ActionType indexed actionType);
+    event ConsensusCanceled(
+        address indexed applicant,
+        bytes32 indexed consensusId,
+        ActionType indexed actionType
+    );
 
     /**
      * @dev Action canceled event
      */
-    event ActionCanceled(address indexed applicant, bytes32 indexed consensusId, ActionType indexed actionType);
+    event ActionCanceled(
+        address indexed applicant,
+        bytes32 indexed consensusId,
+        ActionType indexed actionType
+    );
 
     /**
      * @dev Action executed event
      */
     event ActionExecuted(
-        address sender,
+        address indexed sender,
         bytes32 indexed consensusId,
         ActionType indexed actionType,
-        ActionStatus indexed status,
         bytes data
     );
 
-    function startConsensus(ConsensusRequest calldata request) external returns (bytes32 consensusId);
+    function startConsensus(ConsensusRequest calldata request)
+        external
+        returns (bytes32 consensusId);
 
     function voteConsensus(bytes32 consensusId, bool vote) external;
 
@@ -128,7 +140,7 @@ interface IManagement {
         bytes32 consensusId,
         uint256 optionalData1,
         uint256 optionalData2
-    ) external returns (bool, bytes memory);
+    ) external returns (bytes memory);
 
     function getCurrentConsensus() external view returns (bytes32);
 

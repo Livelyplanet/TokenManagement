@@ -45,7 +45,6 @@ export enum ConsensusStage {
 }
 
 export enum ActionStatus {
-  FAIL,
   SUCCESS,
   PENDING,
   CANCELED,

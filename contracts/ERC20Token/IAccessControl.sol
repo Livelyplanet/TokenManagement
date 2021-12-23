@@ -12,7 +12,12 @@ interface IAccessControl {
      * with the firstInitializeConsensusRole by an admin role
      *
      */
-    event RoleGranted(bytes32 indexed role, address indexed sender, address indexed newAccount, address oldAccount);
+    event RoleGranted(
+        bytes32 indexed role,
+        address indexed sender,
+        address indexed newAccount,
+        address oldAccount
+    );
 
     /**
      * @dev Emitted when `account` is revoked `role`.

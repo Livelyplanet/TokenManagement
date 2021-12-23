@@ -8,7 +8,12 @@ interface IACL {
     /**
      * @dev Emitted when `account` changed `role`.
      */
-    event RoleChanged(bytes32 indexed role, address indexed sender, address indexed newAccount, address oldAccount);
+    event RoleChanged(
+        bytes32 indexed role,
+        address indexed sender,
+        address indexed newAccount,
+        address oldAccount
+    );
 
     /**
      * @dev Substitude currentAccount of role to newAccount.
