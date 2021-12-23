@@ -404,17 +404,17 @@ contract Management is ERC165, ACL, IManagement {
                 consensusData.optAccount1,
                 consensusData.optAccount2
             );
-
-            bytes memory resultCall = _forward(address(this), inputData);
-            consensusData.actionStatus = ActionStatus.SUCCESS;
+            
             _resetConsensus();
+            consensusData.actionStatus = ActionStatus.SUCCESS;
+            bytes memory resultCall = _forward(address(this), inputData);
             emit ActionExecuted(msg.sender, consensusId, consensusData.actionType, resultCall);
             return resultCall;
         }
 
-        result = _forward(_livelyERC20Token, inputData);
-        consensusData.actionStatus = ActionStatus.SUCCESS;
         _resetConsensus();
+        consensusData.actionStatus = ActionStatus.SUCCESS;        
+        result = _forward(_livelyERC20Token, inputData);
         emit ActionExecuted(msg.sender, consensusId, consensusData.actionType, result);
         return result;
     }
