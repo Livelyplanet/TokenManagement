@@ -1,17 +1,6 @@
 /* eslint-disable node/no-missing-import */
 /* eslint-disable no-unused-vars */
 /* eslint-disable no-unused-expressions */
-/*
- * data tuple for remix
- * Burn
- * [1,3,"0x001b0a8A4749C70AEAD435Cf7E6dA06A7bAd1a2d","0x001b0a8A4749C70AEAD435Cf7E6dA06A7bAd1a2d","0x36fd43ede163045b10e1f0abd16f62f165fce3fa7b6cde217bcea3bc47663acc","1000000000000000000000"];
- *
- * GRANT_ROLE CONSENSUS_ROLE
- * [1,0,"0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9","0x5FC8d32690cc91D4c39d9d3abcBD16989F875707","0x36fd43ede163045b10e1f0abd16f62f165fce3fa7b6cde217bcea3bc47663acc",0];
- *
- * GRANT_ROLE ADMIN
- * [1,0,"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266","0x14dc79964da2c08b23698b3d3cc7ca32193d9955","0xa49807205ce4d355092ef5a8a18f56e8913cf4a201fbe287825b095693c21775",0];
- */
 import { expect } from "chai";
 import { ethers } from "ethers";
 import { waffle } from "hardhat";
